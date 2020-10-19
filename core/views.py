@@ -1,12 +1,17 @@
+from django.db.models import Q
 from django.shortcuts import render
+from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from rest_framework_datatables.pagination import DatatablesLimitOffsetPagination
 from .serializers import *
 from .models import *
 
 
 # Create your views here.
+
+class PaginationList(DatatablesLimitOffsetPagination):
+    PAGE_SIZE = 10
 
 
 class CompanyView(APIView):
@@ -45,15 +50,21 @@ class CompanyViewWithId(APIView):
         return Response({'success': 'Company Deleted Successfully'})
 
 
-class EmployeeView(APIView):
+class EmployeeView(generics.ListCreateAPIView):
     serializer_class = EmployeeSerializer
+    queryset = Employee.objects.all()
+    pagination_class = PaginationList
 
-    def get(self, request):
-        employee = Employee.objects.all()
-        serializer = EmployeeSerializer(employee, many=True)
-        return Response({'data': serializer.data})
+    def get_queryset(self):
+        queryset = Employee.objects.all()
+        name = self.request.query_params.get('name')
+        if name is not None:
+            queryset = queryset.filter(name__icontains=name)
+            return queryset
+        else:
+            return queryset
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         serializer = EmployeeSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
